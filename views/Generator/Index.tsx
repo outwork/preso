@@ -132,10 +132,10 @@ const handleFinalGeneration = async () => {
       );
 
       for await (const chunk of stream) {
-        fullResponse += chunk;
+        fullResponse += chunk.text;
         
         // Parse the stream as it arrives (this handles the concatenated JSONs)
-        const { completeSlides, inProgressHtml } = parseLiveStream(fullResponse);
+        const { completeSlides, inProgressHtml } = parseLiveStream(fullResponse, chunk.isComplete);
         
         // Update UI
         setGeneratedSlides(completeSlides);

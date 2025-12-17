@@ -303,7 +303,7 @@ export class GeminiService {
     theme: Theme,
     mode: "concise" | "balanced" | "theory",
     customizationPrompt: string
-  ): AsyncGenerator<string> {
+  ): AsyncGenerator<{ text: string; isComplete: boolean }> {
     // 1. Initialize the Chat Session
     // We pass the System Instruction and Schema here so it applies to EVERY interaction in the chat.
     const chat = this.ai.chats.create({
@@ -346,6 +346,9 @@ export class GeminiService {
     for (let i = 0; i < outline.length; i += BATCH_SIZE) {
       const startSlide = i + 1;
       const endSlide = Math.min(i + BATCH_SIZE, outline.length);
+
+      // Calculate if this is the final batch in the loop
+      const isLastBatch = endSlide >= outline.length;
 
       // Select only the outline items for this specific batch
       const batchOutlineItems = outline.slice(i, i + BATCH_SIZE);
@@ -404,8 +407,10 @@ export class GeminiService {
         for await (const chunk of responseStream) {
           if (chunk.text) {
             // NOTE: The frontend receives multiple JSON objects (one per batch).
-            // Ensure your frontend parser can handle concatenated JSONs or NDJSON.
-            yield chunk.text;
+            yield { 
+              text: chunk.text, 
+              isComplete: isLastBatch 
+            };
           }
         }
       } catch (error) {

@@ -4,26 +4,27 @@
  * Parses a streaming string from the AI to extract complete slides 
  * and the current HTML chunk in progress.
  * 
- * UPGRADED: Now detects completed slides INSIDE an open batch.
+ * @param stream The full string buffer from the AI
+ * @param isStreamComplete Boolean flag if the generation process is fully finished
  */
 export const parseLiveStream = (
-  stream: string
+  stream: string,
+  isStreamComplete: boolean = false
 ): {
   completeSlides: { title: string; content: string }[];
   inProgressHtml: string;
 } => {
   const completeSlides: { title: string; content: string }[] = [];
   
-  // 1. Basic Clean up
-  let cleanStream = stream.trim();
-  if (cleanStream.startsWith("```json")) {
-    cleanStream = cleanStream.replace(/^```json/, "").replace(/```$/, "");
-  } else if (cleanStream.startsWith("```")) {
-    cleanStream = cleanStream.replace(/^```/, "").replace(/```$/, "");
-  }
+  // 1. ROBUST CLEANING: 
+  // We must remove markdown tags that appear anywhere, not just at the start.
+  // The AI might output: "{...} ```json {...}" so we replace all occurrences.
+  let cleanStream = stream
+    .replace(/```json/g, "") // Remove all ```json
+    .replace(/```/g, "")     // Remove all remaining ```
+    .trim();
 
   // --- PHASE 1: Extract Fully Completed Batches ---
-  // We scan for top-level JSON objects { ... } that are fully closed.
   
   let braceCount = 0;
   let inString = false;
@@ -32,7 +33,13 @@ export const parseLiveStream = (
 
   for (let i = 0; i < cleanStream.length; i++) {
     const char = cleanStream[i];
-    if (char === "\\") { i++; continue; }
+    
+    // Skip escaped characters
+    if (char === "\\" && i + 1 < cleanStream.length) { 
+      i++; 
+      continue; 
+    }
+    
     if (char === '"') { inString = !inString; }
 
     if (!inString) {
@@ -41,8 +48,8 @@ export const parseLiveStream = (
         braceCount++;
       } else if (char === "}") {
         braceCount--;
+        // Check for root level object closure
         if (braceCount === 0 && currentObjectStartIndex !== -1) {
-          // Found a full batch! Parse it.
           const batchStr = cleanStream.substring(currentObjectStartIndex, i + 1);
           try {
             const batch = JSON.parse(batchStr);
@@ -50,16 +57,16 @@ export const parseLiveStream = (
               completeSlides.push(...batch.slides);
             }
             lastValidBatchEndIndex = i + 1;
-          } catch (e) { /* ignore invalid JSON */ }
+          } catch (e) { 
+            // If parse fails, it might be a partial fragment or hallucination
+          }
           currentObjectStartIndex = -1;
         }
       }
     }
   }
 
-  // --- PHASE 2: Peek Inside the "Open" Batch ---
-  // The "tail" of the stream is likely an incomplete JSON object for the current batch.
-  // We want to find slides inside it that are finished.
+  // --- PHASE 2: Peek Inside the "Open" (Incomplete) Batch ---
   
   const remainingStream = cleanStream.substring(lastValidBatchEndIndex);
   let inProgressHtml = "";
@@ -71,12 +78,9 @@ export const parseLiveStream = (
     const slidesArrayStart = slidesArrayMatch.index + slidesArrayMatch[0].length;
     const slidesString = remainingStream.substring(slidesArrayStart);
 
-    // Scan ONLY the slides array part for objects { ... }
     let slideBraceCount = 0;
     let slideStartIndex = -1;
     let slideInString = false;
-    
-    // We track the end of the last successfully parsed slide in this partial stream
     let lastParsedSlideEnd = 0; 
 
     for (let j = 0; j < slidesString.length; j++) {
@@ -91,23 +95,17 @@ export const parseLiveStream = (
         } else if (char === "}") {
           slideBraceCount--;
           if (slideBraceCount === 0 && slideStartIndex !== -1) {
-            // We found a closed object inside the slides array!
-            // It might be a fully finished slide.
+            // Found a slide object candidate
             const potentialSlideStr = slidesString.substring(slideStartIndex, j + 1);
             try {
               const slide = JSON.parse(potentialSlideStr);
               if (slide.title && slide.content) {
-                // Check if we already have this slide (deduplication)
-                // This is needed because sometimes Batches overlap or retry
+                // Deduplication check
                 const exists = completeSlides.some(s => s.title === slide.title);
-                if (!exists) {
-                  completeSlides.push(slide);
-                }
+                if (!exists) completeSlides.push(slide);
                 lastParsedSlideEnd = j + 1;
               }
-            } catch (e) {
-              // If it fails to parse, it might be the current one being written (bad syntax yet)
-            }
+            } catch (e) { }
             slideStartIndex = -1;
           }
         }
@@ -115,32 +113,30 @@ export const parseLiveStream = (
     }
 
     // --- PHASE 3: Extract "In Progress" HTML ---
-    // Whatever is AFTER the last fully parsed slide is the content currently being written.
     
-    const activeSlidePart = slidesString.substring(lastParsedSlideEnd);
-    const contentMatch = activeSlidePart.match(/"content"\s*:\s*"/);
-    
-    if (contentMatch && contentMatch.index !== undefined) {
-      let partialHtml = activeSlidePart.substring(contentMatch.index + contentMatch[0].length);
+    // Only extract HTML if we aren't completely done with the stream.
+    // If isStreamComplete is true, we assume all valid slides are parsed.
+    if (!isStreamComplete) {
+      const activeSlidePart = slidesString.substring(lastParsedSlideEnd);
+      const contentMatch = activeSlidePart.match(/"content"\s*:\s*"/);
       
-      // Clean up JSON string escaping
-      partialHtml = partialHtml
-        .replace(/\\"/g, '"')
-        .replace(/\\n/g, "\n")
-        .replace(/\\\\/g, "\\");
+      if (contentMatch && contentMatch.index !== undefined) {
+        let partialHtml = activeSlidePart.substring(contentMatch.index + contentMatch[0].length);
+        
+        partialHtml = partialHtml
+          .replace(/\\"/g, '"')
+          .replace(/\\n/g, "\n")
+          .replace(/\\\\/g, "\\");
 
-      // Handle the fact that the string isn't closed yet
-      // If we see a closing quote that looks like the end of the JSON string, stop there.
-      // But purely for preview, we usually just want everything we have so far.
-      
-      // Auto-close divs for preview stability
-      const firstTagEnd = partialHtml.indexOf(">");
-      if (firstTagEnd > -1) {
-         if(partialHtml.lastIndexOf("</div>") === -1) {
-            inProgressHtml = partialHtml + "</div>";
-         } else {
-            inProgressHtml = partialHtml;
-         }
+        const firstTagEnd = partialHtml.indexOf(">");
+        if (firstTagEnd > -1) {
+          // If we don't find a closing div, append one for preview safety
+          if(partialHtml.lastIndexOf("</div>") === -1) {
+              inProgressHtml = partialHtml + "</div>";
+          } else {
+              inProgressHtml = partialHtml;
+          }
+        }
       }
     }
   }

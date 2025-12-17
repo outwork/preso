@@ -429,7 +429,25 @@ export const EditorCanvas = memo<EditorCanvasProps>(
         // 3. Handle Element Selection (If NOT background)
         if (!isBackgroundClick) {
           // Find the selectable item (closest element with an ID or absolute position)
-          let element = target.closest('.relative, .absolute, .flex, [class*="text-"], [class*="object-"]') as HTMLElement;
+          let element = target.closest(
+            '.relative, .absolute, .flex, [class*="text-"], [class*="object-"]'
+          ) as HTMLElement;
+
+          if (element) {
+            const style = window.getComputedStyle(element);
+            if (style.position === "static") {
+              const absoluteParent = element.closest(".absolute");
+              // Ensure we don't select the root canvas or background
+              if (
+                absoluteParent &&
+                absoluteParent.id !== "editor-canvas-root" &&
+                !absoluteParent.classList.contains("bg-gradient-to-t") &&
+                absoluteParent.childElementCount < 2
+              ) {
+                element = absoluteParent as HTMLElement;
+              }
+            }
+          }
 
           // Safety: ensure we didn't go up to the root
           if (element && element.id === "editor-canvas-root")
@@ -884,6 +902,18 @@ export const EditorCanvas = memo<EditorCanvasProps>(
                 zoom={zoom}
                 className="opacity-70 moveable-control"
                 renderDirections={["nw", "ne", "se", "sw"]}
+                onDragStart={(e) => {
+                  const target = e.target as HTMLElement;
+                  // CRITICAL FIX: Unset conflicting CSS constraints
+                  target.style.bottom = "auto";
+                  target.style.right = "auto";
+                }}
+                onResizeStart={(e) => {
+                  const target = e.target as HTMLElement;
+                  // CRITICAL FIX: Unset conflicting CSS constraints
+                  target.style.bottom = "auto";
+                  target.style.right = "auto";
+                }}
                 onDrag={(e) => {
                   e.target.style.left = `${e.left}px`;
                   e.target.style.top = `${e.top}px`;
