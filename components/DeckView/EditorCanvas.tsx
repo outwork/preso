@@ -4,7 +4,6 @@ import { TextFormattingToolbar } from "../TextFormattingToolbar";
 import { ContextMenu, ContextAction } from "../ContextMenu";
 import { Button } from "../Button";
 import {
-  Sparkles,
   Copy,
   Trash2,
   Crop,
@@ -23,7 +22,6 @@ interface EditorCanvasProps {
   isWorking: boolean;
   setIsWorking: (val: boolean) => void;
   onContentChange: (newContent: string) => void;
-  onElementRemix: (element: HTMLElement, instruction: string) => void;
   onContextAction: (
     action: ContextAction,
     payload?: any,
@@ -108,7 +106,6 @@ export const EditorCanvas = memo<EditorCanvasProps>(
     isWorking,
     setIsWorking,
     onContentChange,
-    onElementRemix,
     onContextAction,
     showToast,
     handleApiError,
@@ -130,8 +127,6 @@ export const EditorCanvas = memo<EditorCanvasProps>(
     const [showFormatToolbar, setShowFormatToolbar] = useState(false);
     const [selection, setSelection] = useState<any>(null);
     const [contextMenu, setContextMenu] = useState<any>(null);
-    const [isElementEditOpen, setIsElementEditOpen] = useState(false);
-    const [editInstruction, setEditInstruction] = useState("");
     const [isImageStyleOpen, setIsImageStyleOpen] = useState(false);
 
     // Drawing / Selection Box
@@ -163,7 +158,6 @@ export const EditorCanvas = memo<EditorCanvasProps>(
       setIsDrawing(false);
       setContextMenu(null);
       setShowFormatToolbar(false);
-      setIsElementEditOpen(false);
       setIsImageStyleOpen(false);
       setCroppingElement(null);
     }, [activeSlideIndex]);
@@ -422,7 +416,6 @@ export const EditorCanvas = memo<EditorCanvasProps>(
           target.id === "editor-canvas-root" || target === viewportRef.current;
 
         setContextMenu(null);
-        setIsElementEditOpen(false);
         setIsImageStyleOpen(false);
         setShowReplaceMenu(false);
 
@@ -984,7 +977,6 @@ export const EditorCanvas = memo<EditorCanvasProps>(
           )}
 
           {selectedElements.length > 0 &&
-            !isElementEditOpen &&
             !showFormatToolbar &&
             !isImageStyleOpen && (
               <div
@@ -1007,16 +999,6 @@ export const EditorCanvas = memo<EditorCanvasProps>(
                   accept="image/*"
                   onChange={handleReplaceImage}
                 />
-                <button
-                  onClick={() => {
-                    setIsElementEditOpen(true);
-                    setIsImageStyleOpen(false);
-                  }}
-                  className="flex items-center gap-2 bg-gradient-to-r from-violet-500 to-indigo-600 text-white px-3 py-1 rounded-full text-xs font-bold transition hover:shadow-lg"
-                >
-                  <Sparkles size={13} /> AI Edit
-                </button>
-
                 {/* UPDATED CONDITION: Only show image tools if strictly an image or image container */}
 
                 {selectedElements.length === 1 &&
@@ -1245,42 +1227,6 @@ export const EditorCanvas = memo<EditorCanvasProps>(
             </>
           )}
 
-          {isElementEditOpen && selectedElements.length > 0 && (
-            <div
-              className="fixed z-[110] ui-layer bg-white p-2 rounded-xl shadow-2xl border border-indigo-200 flex gap-2 w-96 animate-in slide-in-from-bottom-2"
-              style={{
-                top: selectedElements[0].getBoundingClientRect().top - 60,
-                left: selectedElements[0].getBoundingClientRect().left,
-              }}
-              onMouseDown={(e) => e.stopPropagation()}
-            >
-              <input
-                autoFocus
-                className="flex-1 text-sm outline-none px-2 font-medium"
-                placeholder="E.g. Convert to bullet list..."
-                value={editInstruction}
-                onChange={(e) => setEditInstruction(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    onElementRemix(selectedElements[0], editInstruction);
-                    setEditInstruction("");
-                    setIsElementEditOpen(false);
-                  }
-                }}
-              />
-              <button
-                onClick={() => {
-                  onElementRemix(selectedElements[0], editInstruction);
-                  setEditInstruction("");
-                  setIsElementEditOpen(false);
-                }}
-                className="bg-indigo-600 text-white rounded-lg p-1.5"
-              >
-                <Sparkles size={16} />
-              </button>
-            </div>
-          )}
-
           {contextMenu && (
             <div className="ui-layer">
               <ContextMenu
@@ -1292,12 +1238,11 @@ export const EditorCanvas = memo<EditorCanvasProps>(
             </div>
           )}
 
-          {/* AI Processing Overlay */}
           {isWorking && (
             <div className="absolute inset-0 z-[400] bg-white/20 backdrop-blur-[2px] flex items-center justify-center font-bold text-indigo-900 pointer-events-none">
               <div className="bg-white p-3 px-6 rounded-full shadow-2xl flex gap-3">
                 <div className="animate-spin w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full"></div>{" "}
-                AI is Working...
+                Processing...
               </div>
             </div>
           )}

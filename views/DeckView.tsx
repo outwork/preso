@@ -271,9 +271,8 @@ export const DeckView: React.FC<DeckViewProps> = ({
         zoom={zoom}
         isWorking={isWorking}
         setIsWorking={setIsWorking}
-        onContentChange={handleContentChange} // PASS STABLE CALLBACK
-        onElementRemix={handleElementRemix}   // PASS STABLE CALLBACK
-        onContextAction={handleContextAction} // PASS STABLE CALLBACK
+        onContentChange={handleContentChange}
+        onContextAction={handleContextAction}
         showToast={showToast}
         handleApiError={handleApiError}
       />
@@ -282,8 +281,6 @@ export const DeckView: React.FC<DeckViewProps> = ({
         zoom={zoom}
         setZoom={setZoom}
         onPresent={() => setIsPresentationMode(true)}
-        onGlobalRemix={handleGlobalRemix}
-        isWorking={isWorking}
       />
 
       {isThemePickerOpen && (
