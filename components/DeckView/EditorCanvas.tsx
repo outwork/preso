@@ -882,7 +882,6 @@ export const EditorCanvas = memo<EditorCanvasProps>(
               />
 
               <Moveable
-                key={selectedElements.map((e) => e.id).join(",")}
                 target={selectedElements}
                 snappable={true}
                 resizable={true}
@@ -1037,7 +1036,6 @@ export const EditorCanvas = memo<EditorCanvasProps>(
                           icon={Crop}
                           onClick={() => {
                             setIsImageStyleOpen(true);
-                            setIsElementEditOpen(false);
                           }}
                         />
                       </div>
