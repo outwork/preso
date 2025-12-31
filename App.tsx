@@ -2,7 +2,6 @@
 import React, { useState } from "react";
 import { Layout } from "./components/Layout";
 import { Dashboard } from "./views/Dashboard";
-import { Generator } from "./views/Generator/Index";
 import { DeckView } from "./views/DeckView";
 import { Button } from "./components/Button";
 import { ExportMenu } from "./components/ExportMenu";
@@ -11,7 +10,7 @@ import { saveDeck } from "./services/db";
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<
-    "dashboard" | "create" | "deck"
+    "dashboard" | "deck"
   >("dashboard");
   const [activeDeckId, setActiveDeckId] = useState<string | null>(null);
   const [deckTitle, setDeckTitle] = useState("");
@@ -26,7 +25,33 @@ const App: React.FC = () => {
   const [deck, setDeck] = useState<Deck | null>(null);
   const [isPresentationMode, setIsPresentationMode] = useState(false);
 
-  const handleCreateNew = () => setCurrentView("create");
+  const handleCreateNew = async () => {
+    const deckId = crypto.randomUUID();
+    const newDeck: Deck = {
+      id: deckId,
+      title: "Untitled Presentation",
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      theme: "default",
+      slides: [
+        {
+          id: crypto.randomUUID(),
+          title: "Slide 1",
+          content:
+            '<div class="absolute inset-0 bg-white flex items-center justify-center"><h1 class="text-7xl font-bold text-slate-900">TITLE</h1></div>',
+        },
+      ],
+    };
+    try {
+      await saveDeck(newDeck);
+      setActiveDeckId(deckId);
+      setDeckTitle(newDeck.title);
+      setDeck(newDeck);
+      setCurrentView("deck");
+    } catch (error) {
+      console.error("Failed to create deck", error);
+    }
+  };
 
   const handleDeckCreated = (deckId: string) => {
     setActiveDeckId(deckId);
@@ -121,13 +146,6 @@ const App: React.FC = () => {
             <Dashboard
               onCreateNew={handleCreateNew}
               onOpenDeck={handleOpenDeck}
-            />
-          )}
-
-          {currentView === "create" && (
-            <Generator
-              onDeckCreated={handleDeckCreated}
-              onCancel={handleGoHome}
             />
           )}
 

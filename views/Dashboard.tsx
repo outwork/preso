@@ -126,7 +126,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onCreateNew, onOpenDeck })
         <div className="flex items-center justify-between mb-10 z-10 relative">
           <div>
             <h1 className="text-3xl font-bold text-slate-900">My Decks</h1>
-            <p className="text-slate-500 mt-1">Manage and present your AI-generated slides.</p>
+            <p className="text-slate-500 mt-1">Create and customize your presentations.</p>
           </div>
           <Button onClick={onCreateNew} size="lg">
             <span className="mr-2 text-lg">+</span> Create New
@@ -143,7 +143,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onCreateNew, onOpenDeck })
           <div className="text-center py-20 bg-white/80 backdrop-blur-sm rounded-2xl border border-dashed border-slate-300 z-10 relative shadow-sm">
             <div className="text-4xl mb-4">✨</div>
             <h3 className="text-lg font-medium text-slate-900">No decks yet</h3>
-            <p className="text-slate-500 mb-6">Start by creating your first AI presentation.</p>
+            <p className="text-slate-500 mb-6">Start by creating your first presentation.</p>
             <Button onClick={onCreateNew} variant="outline">Create New Deck</Button>
           </div>
         ) : (
