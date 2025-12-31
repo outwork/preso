@@ -4,9 +4,9 @@ import { Layout } from "./components/Layout";
 import { Dashboard } from "./views/Dashboard";
 import { DeckView } from "./views/DeckView";
 import { Button } from "./components/Button";
-import { ExportMenu } from "./components/ExportMenu";
 import { Deck } from "./types";
 import { saveDeck } from "./services/db";
+import { exportPresentation } from "./services/export";
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<
@@ -14,7 +14,6 @@ const App: React.FC = () => {
   >("dashboard");
   const [activeDeckId, setActiveDeckId] = useState<string | null>(null);
   const [deckTitle, setDeckTitle] = useState("");
-  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
 
   const [isWorking, setIsWorking] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -100,12 +99,19 @@ const App: React.FC = () => {
         variant="ghost"
         size="sm"
         className="text-slate-600"
-        onClick={() => {
+        onClick={async () => {
           if (isWorking) {
-            showToast("Please wait while AI is working");
+            showToast("Please wait while processing");
             return;
           }
-          setIsExportMenuOpen(true);
+          if (!deck) return;
+          try {
+            await exportPresentation(deck, 'pptx');
+            showToast("Presentation downloaded!");
+          } catch (error) {
+            console.error("Export failed:", error);
+            showToast("Export failed. Please try again.");
+          }
         }}
       >
         Export
@@ -167,13 +173,6 @@ const App: React.FC = () => {
             />
           )}
         </Layout>
-      {isExportMenuOpen && deck && (
-        <ExportMenu
-          deck={deck}
-          currentSlideIndex={activeSlideIndex}
-          onClose={() => setIsExportMenuOpen(false)}
-        />
-      )}
     </>
   );
 };
