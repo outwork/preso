@@ -20,13 +20,15 @@ const cleanJsonString = (text: string) => {
 };
 
 export class GeminiService {
-  private ai: GoogleGenAI;
+  private ai: GoogleGenAI | null = null;
 
   constructor() {
-    (async () => {
-      const apiKey = process.env.GEMINI_API_KEY;
-      this.ai = new GoogleGenAI({ apiKey });
-    })();
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      console.warn("GEMINI_API_KEY not set - AI features will be unavailable");
+      return;
+    }
+    this.ai = new GoogleGenAI({ apiKey });
   }
 
   /**
@@ -70,6 +72,9 @@ export class GeminiService {
     inputData: string,
     noOfSlides: number = 10
   ): Promise<{ outline: OutlineItem[]; notes: string }> {
+    if (!this.ai) {
+      throw new Error("AI service not initialized. GEMINI_API_KEY is not set.");
+    }
     // UPDATED: Split System Instruction vs User Content
     const userPrompt = Prompts.getOutlineUserPrompt(
       mode,
@@ -94,7 +99,7 @@ export class GeminiService {
 
     try {
       const response = await this._withRetry(() =>
-        this.ai.models.generateContent({
+        this.ai!.models.generateContent({
           model: FLASH_LITE_MODEL,
           contents: contents,
           config: {
@@ -152,11 +157,14 @@ export class GeminiService {
     currentOutline: OutlineItem[],
     instruction: string
   ): Promise<{ outline: OutlineItem[]; notes: string }> {
+    if (!this.ai) {
+      throw new Error("AI service not initialized. GEMINI_API_KEY is not set.");
+    }
     const prompt = Prompts.getRefineOutlinePrompt(currentOutline, instruction);
 
     try {
       const response = await this._withRetry(() =>
-        this.ai.models.generateContent({
+        this.ai!.models.generateContent({
           model: FLASH_LITE_MODEL,
           contents: prompt,
           config: {
@@ -203,11 +211,14 @@ export class GeminiService {
     title: string,
     outline: OutlineItem[]
   ): Promise<Theme> {
+    if (!this.ai) {
+      throw new Error("AI service not initialized. GEMINI_API_KEY is not set.");
+    }
     const prompt = Prompts.getAutoThemePrompt(title, outline);
 
     try {
       const response = await this._withRetry(() =>
-        this.ai.models.generateContent({
+        this.ai!.models.generateContent({
           model: FLASH_LITE_MODEL, // Lite is perfect for this, fast & creative
           contents: prompt,
           config: {
@@ -261,10 +272,13 @@ export class GeminiService {
 
   // (generateColorPalettes remains unchanged)
   async generateColorPalettes(prompt: string): Promise<string[][]> {
+    if (!this.ai) {
+      throw new Error("AI service not initialized. GEMINI_API_KEY is not set.");
+    }
     const aiPrompt = Prompts.getColorPalettePrompt(prompt);
     try {
       const response = await this._withRetry(() =>
-        this.ai.models.generateContent({
+        this.ai!.models.generateContent({
           model: FLASH_LITE_MODEL,
           contents: aiPrompt,
           config: {
@@ -304,6 +318,9 @@ export class GeminiService {
     mode: "concise" | "balanced" | "theory",
     customizationPrompt: string
   ): AsyncGenerator<{ text: string; isComplete: boolean }> {
+    if (!this.ai) {
+      throw new Error("AI service not initialized. GEMINI_API_KEY is not set.");
+    }
     // 1. Initialize the Chat Session
     // We pass the System Instruction and Schema here so it applies to EVERY interaction in the chat.
     const chat = this.ai.chats.create({
@@ -520,6 +537,9 @@ export class GeminiService {
     instruction: string,
     context: "slide" | "element" = "slide"
   ): Promise<string> {
+    if (!this.ai) {
+      throw new Error("AI service not initialized. GEMINI_API_KEY is not set.");
+    }
     // 1. Tokenize Images
     const { cleanedHtml, imageMap } =
       this.replaceImagesWithPlaceholders(currentContent);
@@ -532,7 +552,7 @@ export class GeminiService {
 
     try {
       const response = await this._withRetry(() =>
-        this.ai.models.generateContent({
+        this.ai!.models.generateContent({
           model: FLASH_PREVIEW_MODEL,
           contents: prompt,
           config: {
@@ -562,6 +582,9 @@ export class GeminiService {
     oldTheme: Theme,
     newTheme: Theme
   ): Promise<{ id: string; title: string; content: string }[]> {
+    if (!this.ai) {
+      throw new Error("AI service not initialized. GEMINI_API_KEY is not set.");
+    }
     // 1. Tokenize Images globally across ALL slides
     // We do this once upfront so IDs remain unique across the whole deck
     const globalImageMap = new Map<string, string>();
@@ -671,10 +694,13 @@ export class GeminiService {
     text: string,
     action: "expand" | "condense" | "rewrite" | "tone"
   ): Promise<string> {
+    if (!this.ai) {
+      throw new Error("AI service not initialized. GEMINI_API_KEY is not set.");
+    }
     const prompt = Prompts.getRefineTextPrompt(text, action);
     try {
       const response = await this._withRetry(() =>
-        this.ai.models.generateContent({
+        this.ai!.models.generateContent({
           model: FLASH_OLD_MODEL,
           contents: prompt,
           config: {
