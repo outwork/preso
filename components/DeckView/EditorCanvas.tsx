@@ -1,4 +1,4 @@
-import React, { useRef, useState, memo, useEffect, useCallback } from "react";
+import React, { useRef, useState, memo, useEffect, useCallback, useMemo } from "react";
 import Moveable from "react-moveable";
 import { TextFormattingToolbar } from "../TextFormattingToolbar";
 import { ContextMenu, ContextAction } from "../ContextMenu";
@@ -131,6 +131,7 @@ export const EditorCanvas = memo<EditorCanvasProps>(
 
     // Drawing / Selection Box
     const [isDrawing, setIsDrawing] = useState(false);
+    const [isMoving, setIsMoving] = useState(false);
     const [selectionBox, setSelectionBox] = useState({
       x: 0,
       y: 0,
@@ -148,6 +149,24 @@ export const EditorCanvas = memo<EditorCanvasProps>(
     const [cropBox, setCropBox] = useState<any>(null);
 
     const replaceImageInputRef = useRef<HTMLInputElement>(null);
+
+    const isDraggable = useMemo(
+      () =>
+        selectedElements.length > 0 &&
+        selectedElements.every(
+          (el) => getComputedStyle(el).position === "absolute"
+        ),
+      [selectedElements]
+    );
+
+    const isRotatable = useMemo(
+      () =>
+        selectedElements.length > 0 &&
+        selectedElements.every(
+          (el) => getComputedStyle(el).position === "absolute"
+        ),
+      [selectedElements]
+    );
 
     // --- CLEANUP ---
     useEffect(() => {
@@ -397,7 +416,7 @@ export const EditorCanvas = memo<EditorCanvasProps>(
 
     const handleStageClick = useCallback(
       (e: React.MouseEvent) => {
-        if (isWorking) return;
+        if (isWorking || isMoving) return;
 
         // 1. Ignore UI clicks
         if (
@@ -494,7 +513,7 @@ export const EditorCanvas = memo<EditorCanvasProps>(
         setSelectionBox({ x: startX, y: startY, width: 0, height: 0 });
         setIsDrawing(true);
       },
-      [isWorking, selectedElements]
+      [isWorking, selectedElements, isMoving]
     );
 
     // --- UPDATED DRAG SELECTION EFFECT ---
@@ -885,24 +904,20 @@ export const EditorCanvas = memo<EditorCanvasProps>(
                 target={selectedElements}
                 snappable={true}
                 resizable={true}
-                draggable={selectedElements.every(
-                  (el) => getComputedStyle(el).position === "absolute"
-                )}
-                rotatable={selectedElements.every(
-                  (el) => getComputedStyle(el).position === "absolute"
-                )}
+                draggable={isDraggable}
+                rotatable={isRotatable}
                 zoom={zoom}
                 className="opacity-70 moveable-control"
                 renderDirections={["nw", "ne", "se", "sw"]}
                 onDragStart={(e) => {
+                  setIsMoving(true);
                   const target = e.target as HTMLElement;
-                  // CRITICAL FIX: Unset conflicting CSS constraints
                   target.style.bottom = "auto";
                   target.style.right = "auto";
                 }}
                 onResizeStart={(e) => {
+                  setIsMoving(true);
                   const target = e.target as HTMLElement;
-                  // CRITICAL FIX: Unset conflicting CSS constraints
                   target.style.bottom = "auto";
                   target.style.right = "auto";
                 }}
@@ -939,12 +954,30 @@ export const EditorCanvas = memo<EditorCanvasProps>(
                     ev.target.style.transform = ev.transform;
                   })
                 }
-                onDragEnd={persistChanges}
-                onResizeEnd={persistChanges}
-                onRotateEnd={persistChanges}
-                onDragGroupEnd={persistChanges}
-                onResizeGroupEnd={persistChanges}
-                onRotateGroupEnd={persistChanges}
+                onDragEnd={() => {
+                  setIsMoving(false);
+                  persistChanges();
+                }}
+                onResizeEnd={() => {
+                  setIsMoving(false);
+                  persistChanges();
+                }}
+                onRotateEnd={() => {
+                  setIsMoving(false);
+                  persistChanges();
+                }}
+                onDragGroupEnd={() => {
+                  setIsMoving(false);
+                  persistChanges();
+                }}
+                onResizeGroupEnd={() => {
+                  setIsMoving(false);
+                  persistChanges();
+                }}
+                onRotateGroupEnd={() => {
+                  setIsMoving(false);
+                  persistChanges();
+                }}
               />
             </div>
           </div>
